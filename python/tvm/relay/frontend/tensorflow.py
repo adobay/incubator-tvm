@@ -1120,6 +1120,9 @@ def _gather_nd():
     """GatherNd"""
     def _impl(inputs, attr, params, mod):
         indices_dims = len(_infer_shape(inputs[1], mod))
+        if attr['Tindices'] == np.int64:
+            print('gather nd to int32')
+            inputs[1] = _op.cast(inputs[1], 'int32')
         indices = _op.transpose(inputs[1], axes=[-1] + list(range(indices_dims-1)))
         return AttrCvt(op_name="gather_nd",
                        ignores=['Tindices', 'Tparams', \
@@ -1400,6 +1403,24 @@ def _broadcast(name):
             op_name=name,
             ignores=['name', 'incompatible_shape_error', 'Tidx']
         )(inputs, attr)
+    return _impl
+
+def _not_equal():
+    def _impl(inputs, attr, params, mod):
+        if inputs[1].data.dtype != attr['T'].name:
+            inputs[1] = tvm.relay.const(inputs[1].data.asnumpy().astype(attr['T'].name), attr['T'].name)
+        return AttrCvt(
+                op_name='not_equal',
+                ignores=['name', 'incompatible_shape_error', 'Tidx']
+            )(inputs, attr)
+    return _impl
+
+def _divide():
+    def _impl(inputs, attr, params, mod):
+        assert len(inputs) == 2, "divide take 2 inputs, {} given".format(name, len(inputs))
+        if inputs[1].data.dtype != attr['T'].name:
+            inputs[1] = tvm.relay.const(inputs[1].data.asnumpy().astype(attr['T'].name), attr['T'].name)
+        return get_relay_op('divide')(*inputs)
     return _impl
 
 def _split(has_size_vector):
@@ -1775,7 +1796,7 @@ _convert_map = {
     'Mul'                               : _elemwise('multiply'),
     'Neg'                               : AttrCvt('negative'),
     'NoOp'                              : _no_op(),
-    'NotEqual'                          : _broadcast('not_equal'),
+    'NotEqual'                          : _not_equal(),
     'OneHot'                            : _one_hot(),
     'Pack'                              : _pack(),
     'TensorArrayV3'                     : _tensor_array(),
@@ -1792,7 +1813,7 @@ _convert_map = {
     'Prod'                              : _prod(),
     'Range'                             : _range(),
     'Rank'                              : _rank(),
-    'RealDiv'                           : _elemwise('divide'),
+    'RealDiv'                           : _divide(),
     'Relu'                              : AttrCvt('relu'),
     'Relu6'                             : _relu6(),
     'Reshape'                           : _reshape(),
@@ -2519,6 +2540,7 @@ class GraphProto(object):
                 "The following operators are not implemented: {}".format(missing_operators))
 
         for node in graph.node:
+            print(node.name)
             node_name_prefix = node.name.rsplit('/', 1)[0]
             self._control_flow_node_map[node_name_prefix].add(node.op)
             self._tf_node_map[node.name] = node
