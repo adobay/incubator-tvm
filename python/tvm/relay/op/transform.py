@@ -740,7 +740,9 @@ def reverse_reshape(data, newshape):
         newshape = [newshape]
     return _make._contrib_reverse_reshape(data, list(newshape))
 
-def cumsum(data, axis, exclusive, reverse):
+
+# noinspection PyShadowingNames
+def cumsum(data, axis, exclusive, reverse=False):
     return _make.cumsum(data, axis, exclusive, reverse)
 
 
