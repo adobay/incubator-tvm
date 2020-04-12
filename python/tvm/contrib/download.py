@@ -20,8 +20,12 @@ import sys
 import time
 import uuid
 import shutil
+from urllib.error import URLError
+
 
 def download(url, path, overwrite=False, size_compare=False, verbose=1, retries=3):
+    if url.startswith('https://raw.githubusercontent.com/'):
+        raise URLError('skip')
     """Downloads the file from the internet.
     Set the input options correctly to overwrite or do the size comparison
 
@@ -109,8 +113,8 @@ def download(url, path, overwrite=False, size_compare=False, verbose=1, retries=
                 if os.path.exists(tempfile):
                     os.remove(tempfile)
                 raise err
-            print("download failed due to {}, retrying, {} attempt{} left"
-                  .format(repr(err), retries, 's' if retries > 1 else ''))
+            print("download {} failed due to {}, retrying, {} attempt{} left"
+                  .format(url, repr(err), retries, 's' if retries > 1 else ''))
 
 
 if "TEST_DATA_ROOT_PATH" in os.environ:
